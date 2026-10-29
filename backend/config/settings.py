@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+import dj_database_url
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -44,6 +45,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -72,18 +74,30 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-# PostgreSQL enforcement: Strict primary requirement without fallback
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'splitease_db'),
-        'USER': os.environ.get('DB_USER', 'postgres'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-        'ATOMIC_REQUESTS': True,
+# PostgreSQL: Use DATABASE_URL if provided (cloud), otherwise use individual env vars (local)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+    DATABASES['default']['ATOMIC_REQUESTS'] = True
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'splitease_db'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'postgres'),
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+            'ATOMIC_REQUESTS': True,
+        }
+    }
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -110,6 +124,7 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
